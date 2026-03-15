@@ -29,6 +29,7 @@ except ImportError:
     sys.exit(1)
 
 from cli_anything.bambustudio.core.workflow import workflow_auto, workflow_review
+from cli_anything.bambustudio.core.discovery import discover_projects as _discover_projects
 from cli_anything.bambustudio.utils.bambustudio_backend import open_in_bambustudio
 from cli_anything.bambustudio.core.config import (
     list_printers,
@@ -40,7 +41,12 @@ from cli_anything.bambustudio.core.inventory import SpoolRegistry
 
 mcp = FastMCP(
     "BambuStudio",
-    instructions="3D printing slicer tools: slice STL files, manage filament spools, discover printer profiles",
+    instructions=(
+        "3D printing tools for Bambu Lab printers. "
+        "When the user mentions a file without giving a path, "
+        "call discover_projects first to find it. "
+        "Then use review_project or slice_stl with the discovered path."
+    ),
 )
 
 
@@ -169,6 +175,21 @@ def open_in_studio(project_path: str) -> dict[str, Any]:
         project_path: Absolute path to the .3mf or .stl file.
     """
     return open_in_bambustudio(project_path)
+
+
+@mcp.tool()
+def discover_projects(query: str = "", limit: int = 10) -> dict[str, Any]:
+    """Find recent 3MF and STL files on this machine.
+
+    Scans Downloads, Desktop, and Documents for 3D print files,
+    sorted by most recently modified. Use this when the user
+    mentions a file but doesn't provide the full path.
+
+    Args:
+        query: Optional search term to filter by filename (e.g. "skull", "vase").
+        limit: Maximum number of results (default: 10).
+    """
+    return _discover_projects(query=query, limit=limit)
 
 
 @mcp.tool()
