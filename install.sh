@@ -144,10 +144,15 @@ if [[ ":$PATH:" != *":$SYMLINK_DIR:"* ]]; then
     fi
 
     if [ -n "$SHELL_RC" ]; then
-        echo "" >> "$SHELL_RC"
-        echo "# BambuStudio Agent Harness" >> "$SHELL_RC"
-        echo "export PATH=\"$SYMLINK_DIR:\$PATH\"" >> "$SHELL_RC"
-        info "Added $SYMLINK_DIR to PATH in $SHELL_RC"
+        # Avoid duplicate PATH entries on re-run
+        if ! grep -q "bambustudio-harness/bin" "$SHELL_RC" 2>/dev/null; then
+            echo "" >> "$SHELL_RC"
+            echo "# BambuStudio Agent Harness" >> "$SHELL_RC"
+            echo "export PATH=\"$SYMLINK_DIR:\$PATH\"" >> "$SHELL_RC"
+            info "Added $SYMLINK_DIR to PATH in $SHELL_RC"
+        else
+            info "PATH already configured in $SHELL_RC"
+        fi
         warn "Run 'source $SHELL_RC' or open a new terminal for PATH changes"
     else
         warn "Add this to your shell profile:
@@ -172,6 +177,68 @@ fi
 # ---------------------------------------------------------------
 mkdir -p "$HARNESS_DIR"
 info "Data directory: $HARNESS_DIR"
+
+# ---------------------------------------------------------------
+# Step 9: Install MCP package and configure Claude Desktop
+# ---------------------------------------------------------------
+echo ""
+echo "Setting up Claude Desktop integration..."
+
+"$VENV_DIR/bin/pip" install --quiet mcp 2>/dev/null && info "MCP package installed" || warn "MCP package install failed (Claude Desktop integration optional)"
+
+CLAUDE_CONFIG_DIR="$HOME/Library/Application Support/Claude"
+CLAUDE_CONFIG="$CLAUDE_CONFIG_DIR/claude_desktop_config.json"
+MCP_SERVER_PATH="$REPO_DIR/mcp-bambustudio/server.py"
+MCP_PYTHON="$VENV_DIR/bin/python"
+
+if [ "$(uname)" = "Darwin" ] && [ -d "$CLAUDE_CONFIG_DIR" ]; then
+    # Claude Desktop is installed — configure MCP server
+    if [ -f "$CLAUDE_CONFIG" ]; then
+        # Check if bambustudio is already configured
+        if grep -q "bambustudio" "$CLAUDE_CONFIG" 2>/dev/null; then
+            info "Claude Desktop MCP already configured"
+        else
+            # Add bambustudio server to existing config
+            "$VENV_DIR/bin/python" -c "
+import json, sys
+try:
+    with open('$CLAUDE_CONFIG', 'r') as f:
+        config = json.load(f)
+except (json.JSONDecodeError, FileNotFoundError):
+    config = {}
+if 'mcpServers' not in config:
+    config['mcpServers'] = {}
+config['mcpServers']['bambustudio'] = {
+    'command': '$MCP_PYTHON',
+    'args': ['$MCP_SERVER_PATH']
+}
+with open('$CLAUDE_CONFIG', 'w') as f:
+    json.dump(config, f, indent=2)
+print('OK')
+" 2>/dev/null && info "Claude Desktop MCP configured" || warn "Could not update Claude Desktop config"
+        fi
+    else
+        # Create new config file
+        mkdir -p "$CLAUDE_CONFIG_DIR"
+        cat > "$CLAUDE_CONFIG" << MCPEOF
+{
+  "mcpServers": {
+    "bambustudio": {
+      "command": "$MCP_PYTHON",
+      "args": ["$MCP_SERVER_PATH"]
+    }
+  }
+}
+MCPEOF
+        info "Claude Desktop MCP config created"
+    fi
+    warn "Restart Claude Desktop to activate (Quit + reopen)"
+else
+    if [ "$(uname)" = "Darwin" ]; then
+        warn "Claude Desktop not detected — install from https://claude.ai/download"
+        echo "    After installing, re-run: bash install.sh"
+    fi
+fi
 
 # ---------------------------------------------------------------
 # Done
