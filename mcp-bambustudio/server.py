@@ -28,7 +28,7 @@ except ImportError:
     )
     sys.exit(1)
 
-from cli_anything.bambustudio.core.workflow import workflow_auto, workflow_review
+from cli_anything.bambustudio.core.workflow import workflow_auto, workflow_review, workflow_slice_project
 from cli_anything.bambustudio.core.discovery import discover_projects as _discover_projects
 from cli_anything.bambustudio.utils.bambustudio_backend import open_in_bambustudio
 from cli_anything.bambustudio.core.config import (
@@ -45,7 +45,8 @@ mcp = FastMCP(
         "3D printing tools for Bambu Lab printers. "
         "When the user mentions a file without giving a path, "
         "call discover_projects first to find it. "
-        "Then use review_project or slice_stl with the discovered path."
+        "For 3MF files (from Makerworld or BambuStudio), use slice_project. "
+        "For raw STL files, use slice_stl."
     ),
 )
 
@@ -190,6 +191,42 @@ def discover_projects(query: str = "", limit: int = 10) -> dict[str, Any]:
         limit: Maximum number of results (default: 10).
     """
     return _discover_projects(query=query, limit=limit)
+
+
+@mcp.tool()
+def slice_project(
+    project_path: str,
+    plate: int = 0,
+    track_usage: bool = False,
+) -> dict[str, Any]:
+    """Slice an existing 3MF project using its embedded presets.
+
+    Use this for 3MF files from Makerworld or BambuStudio that already
+    contain printer, material, and quality settings. For raw STL files
+    without presets, use slice_stl instead.
+
+    Args:
+        project_path: Absolute path to the .3mf file.
+        plate: Plate to slice (0 = all plates).
+        track_usage: If True, deduct filament from loaded spools.
+    """
+    result = workflow_slice_project(
+        project_path=project_path,
+        plate=plate,
+    )
+
+    if track_usage and result.get("ok") and result.get("result"):
+        try:
+            registry = SpoolRegistry()
+            deductions = registry.track_workflow_usage(
+                result["result"],
+                project_name=os.path.basename(project_path),
+            )
+            result["usage_tracking"] = deductions
+        except Exception as e:
+            result.setdefault("warnings", []).append(f"Usage tracking failed: {e}")
+
+    return result
 
 
 @mcp.tool()

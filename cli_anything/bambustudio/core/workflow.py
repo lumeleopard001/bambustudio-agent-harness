@@ -255,6 +255,96 @@ def workflow_auto(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+# workflow slice_project (3MF with embedded presets)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def workflow_slice_project(
+    project_path: str,
+    plate: int = 0,
+    backend: BambuStudioBackend | None = None,
+) -> dict[str, Any]:
+    """Slice an existing 3MF project using its embedded presets.
+
+    Unlike workflow_auto (which imports an STL and creates a project),
+    this slices a 3MF that already contains printer, material, quality
+    settings, and plate layout — typical for Makerworld downloads and
+    BambuStudio-saved projects.
+
+    Args:
+        project_path: Path to the .3mf file.
+        plate: Plate index to slice (0 = all plates).
+        backend: BambuStudioBackend instance.
+
+    Returns:
+        Dict with slicing result, estimates, and project info.
+    """
+    proj = Path(project_path)
+    if not proj.exists():
+        return {"error": f"File not found: {project_path}", "ok": False}
+    if proj.suffix.lower() != ".3mf":
+        return {"error": f"Expected .3mf file, got {proj.suffix}", "ok": False}
+
+    if backend is None:
+        from cli_anything.bambustudio.utils.bambustudio_backend import find_bambustudio
+        backend = BambuStudioBackend(find_bambustudio())
+
+    # Preflight: geometry and settings check
+    preflight = _preflight_check(str(proj), backend)
+    step_warnings: list[str] = preflight.get("warnings", [])
+
+    # Slice directly — project has its own presets
+    slice_dir = tempfile.mkdtemp(prefix="bambustudio_project_slice_")
+    slice_result = backend.run(
+        ["--slice", str(plate), "--outputdir", slice_dir],
+        input_files=[str(proj)],
+    )
+
+    # Build response
+    result: dict[str, Any] = {
+        "ok": True,
+        "project": str(proj.resolve()),
+        "warnings": step_warnings,
+    }
+
+    # Add preflight info
+    if "object_count" in preflight:
+        result["object_count"] = preflight["object_count"]
+        result["total_triangles"] = preflight.get("total_triangles", 0)
+
+    if slice_result.ok:
+        result["sliced"] = True
+        result["slice_duration_ms"] = slice_result.duration_ms
+
+        # Parse result.json for estimates
+        result_json_path = os.path.join(slice_dir, "result.json")
+        if os.path.isfile(result_json_path):
+            try:
+                with open(result_json_path, "r", encoding="utf-8") as fh:
+                    slice_data = json.load(fh)
+                result["result"] = slice_data
+
+                plates = slice_data.get("sliced_plates", [])
+                if plates:
+                    p = plates[0]
+                    total_time = p.get("total_predication", 0)
+                    result["print_time_seconds"] = total_time
+                    result["print_time_human"] = _format_time(total_time)
+
+                    filaments = p.get("filaments", [])
+                    if filaments:
+                        total_g = sum(f.get("total_used_g", 0) for f in filaments)
+                        result["filament_used_g"] = round(total_g, 1)
+            except (json.JSONDecodeError, OSError):
+                step_warnings.append("Could not parse result.json")
+    else:
+        result["sliced"] = False
+        result["slice_error"] = slice_result.error_message
+        step_warnings.append(f"Slicing failed: {slice_result.error_message}")
+
+    return result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 # workflow guided (multi-step API)
 # ═══════════════════════════════════════════════════════════════════════════
 

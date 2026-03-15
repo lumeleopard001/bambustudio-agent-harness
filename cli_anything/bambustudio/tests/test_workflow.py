@@ -15,6 +15,7 @@ import pytest
 
 from cli_anything.bambustudio.core.workflow import (
     workflow_auto,
+    workflow_slice_project,
     workflow_guided_start,
     workflow_guided_select,
     workflow_guided_execute,
@@ -154,6 +155,71 @@ class TestWorkflowAuto:
                 )
         assert result.get("ok") is False
         assert "error" in result
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# workflow slice_project
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+class TestWorkflowSliceProject:
+
+    def test_slice_project_mock(self, minimal_3mf, mock_backend):
+        """Slice 3MF project with mock backend returns estimates."""
+        result = workflow_slice_project(
+            project_path=str(minimal_3mf),
+            backend=mock_backend,
+        )
+        assert result.get("ok") is True
+        assert result.get("sliced") is True
+        assert result.get("print_time_seconds") == 1800
+        assert result.get("filament_used_g") == 5.2
+        assert result.get("print_time_human") == "30m 0s"
+
+    def test_slice_project_missing_file(self):
+        """Non-existent file returns error."""
+        result = workflow_slice_project(project_path="/nonexistent.3mf")
+        assert result.get("ok") is False
+        assert "error" in result
+
+    def test_slice_project_wrong_extension(self, mock_stl):
+        """STL file returns error (should use workflow_auto)."""
+        result = workflow_slice_project(project_path=mock_stl)
+        assert result.get("ok") is False
+        assert ".stl" in result.get("error", "").lower() or "expected" in result.get("error", "").lower()
+
+    def test_slice_project_includes_preflight(self, minimal_3mf, mock_backend):
+        """Result includes object count from preflight."""
+        result = workflow_slice_project(
+            project_path=str(minimal_3mf),
+            backend=mock_backend,
+        )
+        assert result.get("object_count") == 1
+        assert result.get("total_triangles") == 12
+
+    def test_slice_project_failed_slice(self, minimal_3mf):
+        """Failed slice returns sliced=False with error message."""
+        from cli_anything.bambustudio.utils.bambustudio_backend import BambuStudioBackend
+
+        backend = BambuStudioBackend.__new__(BambuStudioBackend)
+        backend.binary_path = "/mock/bambustudio"
+        backend.debug_level = 1
+
+        def mock_run(args, input_files=None, timeout=600):
+            return BackendResult(
+                returncode=44, stdout="", stderr="slice error",
+                error_message="Slicing failed", duration_ms=50,
+            )
+
+        backend.run = MagicMock(side_effect=mock_run)
+
+        result = workflow_slice_project(
+            project_path=str(minimal_3mf),
+            backend=backend,
+        )
+        assert result.get("ok") is True  # ok=True means function ran
+        assert result.get("sliced") is False
+        assert "slice_error" in result
 
 
 # ═══════════════════════════════════════════════════════════════════════════
