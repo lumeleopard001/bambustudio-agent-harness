@@ -7,6 +7,7 @@ Includes an interactive REPL mode with prompt_toolkit integration.
 
 from __future__ import annotations
 
+import os
 import shlex
 import sys
 from typing import Optional
@@ -939,7 +940,6 @@ def workflow_auto_cmd(
 
         # Track filament usage if requested
         if track_usage and result.get("ok") and result.get("result"):
-            import os
             try:
                 registry = SpoolRegistry()
                 deductions = registry.track_workflow_usage(
@@ -1180,8 +1180,6 @@ def repl(ctx: click.Context) -> None:
 
     project_name = ""
     if ctx.obj.get("project"):
-        import os
-
         project_name = os.path.basename(ctx.obj["project"])
 
     while True:

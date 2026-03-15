@@ -334,13 +334,15 @@ class SpoolRegistry:
 
         self._save(spools)
 
-        # Log usage
+        # Log actual deducted amount (not slicer-reported, which may exceed remainder)
+        actual_deducted = round(old_remain - new_remain, 1)
         entry = {
             "ts": _now_iso(),
             "spool_id": spool_id,
-            "print_g": round(print_g, 1),
-            "purge_g": round(purge_g, 1),
-            "total_g": round(total_g, 1),
+            "print_g": round(min(print_g, actual_deducted), 1),
+            "purge_g": round(max(0.0, actual_deducted - min(print_g, actual_deducted)), 1),
+            "total_g": actual_deducted,
+            "requested_g": round(total_g, 1),
             "project": project,
         }
         self._append_usage(entry)

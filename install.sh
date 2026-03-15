@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # BambuStudio Agent Harness — One-command installer
-# Usage: curl -sSL <repo>/install.sh | bash
-#    or: bash install.sh
+# Usage: bash install.sh  (run from the cloned repo directory)
 
 set -euo pipefail
 

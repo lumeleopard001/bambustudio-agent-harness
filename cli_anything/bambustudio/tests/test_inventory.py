@@ -255,6 +255,9 @@ class TestUsageDeduction:
         assert result["spool"]["remain_g"] == 0.0
         assert result["spool"]["state"] == "empty"
         assert "empty" in result["warnings"][0].lower()
+        # Log shows actual deducted (10g), not requested (15g)
+        assert result["usage"]["total_g"] == 10.0
+        assert result["usage"]["requested_g"] == 15.0
 
     def test_deduct_low_warning(self, registry):
         registry.add(spool_id=1, brand="Bambu", material="PLA", color="white", weight=100.0, slot="AMS:1")
