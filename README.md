@@ -2,9 +2,7 @@
 
 Command-line tool that lets you (or Claude) slice 3D models and track filament usage from the terminal.
 
-**v2.1.0** | Python 3.10+ | 126 tests passing
-
-> **Pole programmeerija?** Loe [GETTING_STARTED.md](GETTING_STARTED.md) — samm-sammuline juhend eesti keeles.
+**v2.2.0** | Python 3.10+ | 130 tests passing
 
 ## What is this?
 
@@ -103,43 +101,29 @@ See [`examples/spool_status_output.json`](examples/spool_status_output.json) for
 
 ## Use with Claude Desktop
 
-The installer (`install.sh`) sets up Claude Desktop automatically. After installation, restart Claude Desktop and you can ask Claude directly:
+Install the MCP server to give Claude direct access to slicing and spool management.
 
-- "Slice this STL for my A1 with PLA"
-- "How much white PLA do I have left?"
-- "What material should I use for a phone case?"
+```bash
+# Install MCP package
+~/.bambustudio-harness/venv/bin/pip install mcp
+```
 
-If you installed manually (without `install.sh`), see [`mcp-bambustudio/README.md`](mcp-bambustudio/README.md) for MCP setup instructions.
+Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
-### What can you ask Claude?
+```json
+{
+  "mcpServers": {
+    "bambustudio": {
+      "command": "~/.bambustudio-harness/venv/bin/python",
+      "args": ["/path/to/bambustudio-agent-harness/mcp-bambustudio/server.py"]
+    }
+  }
+}
+```
 
-| You say... | Claude does... |
-|-----------|---------------|
-| "Slice Downloads/model.stl for my A1 with PLA" | Slices the file, shows print time and filament usage |
-| "What material should I use for a garden pot?" | Recommends PETG for moisture resistance, explains why |
-| "Use fine quality instead of standard" | Explains the trade-off (slower but smoother) and re-slices |
-| "How much filament do I have left?" | Shows remaining weight per spool and warns if low |
-| "Add a new spool: Bambu PLA, white, AMS slot 1" | Registers the spool in inventory |
-| "Review my project Desktop/case.3mf" | Analyzes settings and suggests improvements |
+Then you can ask Claude: "Slice this STL for my A1 with PLA" or "How much white PLA do I have left?"
 
-### Opening the result in BambuStudio
-
-After Claude slices your model, it tells you the output file path (e.g., `/tmp/bambustudio_auto_.../model_project.3mf`). To see it visually:
-
-1. Open **BambuStudio**
-2. Go to **File → Open Project**
-3. Press **Cmd + Shift + G** and paste the path Claude gave you
-4. Click **Open** — you'll see the sliced model with layers, supports, and print time
-
-### Where to find 3D models
-
-| Site | Best for |
-|------|----------|
-| [MakerWorld](https://makerworld.com) | Bambu Lab optimized models |
-| [Printables](https://printables.com) | Large collection, good quality |
-| [Thingiverse](https://thingiverse.com) | Biggest community |
-
-Download the STL file, then tell Claude where it is (usually your Downloads folder).
+See [`mcp-bambustudio/README.md`](mcp-bambustudio/README.md) for detailed setup.
 
 ## All commands
 
@@ -148,7 +132,9 @@ Download the STL file, then tell Claude where it is (usually your Downloads fold
 | Command | What it does |
 |---------|-------------|
 | `workflow auto --stl FILE --printer NAME --material MAT` | Full pipeline: STL to sliced project |
+| `workflow auto ... --open` | Same, plus open result in BambuStudio GUI |
 | `workflow auto ... --track-usage` | Same, plus deduct filament from inventory |
+| `open-in-studio PATH` | Open a .3mf/.stl file in BambuStudio GUI |
 | `workflow guided-start --stl FILE` | Start step-by-step guided workflow |
 | `workflow review --project FILE.3mf` | Analyze project, suggest improvements |
 

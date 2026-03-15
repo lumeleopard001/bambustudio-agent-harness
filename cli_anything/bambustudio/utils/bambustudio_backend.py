@@ -12,9 +12,11 @@ import os
 import platform
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 # ── Error codes from BambuStudio.cpp lines 105-155 ────────────────────
 
@@ -545,3 +547,33 @@ class BambuStudioBackend:
                 return parent if parent else None
 
         return None
+
+
+# ── GUI launch ────────────────────────────────────────────────────────
+
+def open_in_bambustudio(path: str) -> dict[str, Any]:
+    """Open a .3mf/.stl file in BambuStudio GUI.
+
+    Non-blocking: uses Popen so the calling process continues immediately.
+    macOS: open -a BambuStudio <path>
+    Linux: bambu-studio <path>
+    """
+    if not os.path.isfile(path):
+        return {"opened": False, "error": f"File not found: {path}"}
+
+    _DEVNULL = {"stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL, "stderr": subprocess.DEVNULL}
+
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", "-a", "BambuStudio", path], **_DEVNULL)
+            return {"opened": True, "method": "macOS open", "path": path}
+        elif sys.platform == "linux":
+            subprocess.Popen(["bambu-studio", path], **_DEVNULL)
+            return {"opened": True, "method": "linux", "path": path}
+        else:
+            return {
+                "opened": False,
+                "error": f"Auto-open not supported on {sys.platform}. Open manually: {path}",
+            }
+    except OSError as exc:
+        return {"opened": False, "error": f"Failed to launch BambuStudio: {exc}"}
