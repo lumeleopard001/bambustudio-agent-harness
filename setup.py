@@ -2,8 +2,8 @@ from setuptools import setup, find_namespace_packages
 
 setup(
     name="cli-anything-bambustudio",
-    version="2.0.0",
-    description="Agent-native CLI harness for BambuStudio 3D printing slicer",
+    version="2.1.0",
+    description="CLI harness for BambuStudio 3D printing slicer with filament inventory tracking",
     packages=find_namespace_packages(include=["cli_anything.*"]),
     install_requires=[
         "click>=8.0.0",

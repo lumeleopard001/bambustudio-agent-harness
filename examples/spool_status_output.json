@@ -1,0 +1,95 @@
+{
+  "ok": true,
+  "command": "spool.status",
+  "data": {
+    "slots": {
+      "AMS:1": {
+        "spool_id": 1,
+        "material": "PLA",
+        "color": "white",
+        "remain_g": 847.3,
+        "remain_pct": 84.7
+      },
+      "AMS:2": {
+        "spool_id": 2,
+        "material": "PLA",
+        "color": "black",
+        "remain_g": 412.8,
+        "remain_pct": 41.3
+      },
+      "AMS:3": null,
+      "AMS:4": {
+        "spool_id": 4,
+        "material": "PLA",
+        "color": "blue",
+        "remain_g": 123.5,
+        "remain_pct": 12.4
+      },
+      "EXT:1": null
+    },
+    "spools": [
+      {
+        "id": 1,
+        "brand": "Bambu",
+        "material": "PLA",
+        "variant": "Basic",
+        "color": "white",
+        "start_g": 1000,
+        "remain_g": 847.3,
+        "state": "loaded",
+        "slot": "AMS:1"
+      },
+      {
+        "id": 2,
+        "brand": "Bambu",
+        "material": "PLA",
+        "variant": "Basic",
+        "color": "black",
+        "start_g": 1000,
+        "remain_g": 412.8,
+        "state": "loaded",
+        "slot": "AMS:2"
+      },
+      {
+        "id": 3,
+        "brand": "Sunlu",
+        "material": "PETG",
+        "variant": "",
+        "color": "red",
+        "start_g": 1000,
+        "remain_g": 955.0,
+        "state": "stored",
+        "slot": null
+      },
+      {
+        "id": 4,
+        "brand": "Bambu",
+        "material": "PLA",
+        "variant": "Silk",
+        "color": "blue",
+        "start_g": 1000,
+        "remain_g": 123.5,
+        "state": "loaded",
+        "slot": "AMS:4"
+      },
+      {
+        "id": 5,
+        "brand": "eSun",
+        "material": "TPU",
+        "variant": "",
+        "color": "yellow",
+        "start_g": 500,
+        "remain_g": 430.0,
+        "state": "stored",
+        "slot": null
+      }
+    ],
+    "total_spools": 5,
+    "loaded": 3,
+    "stored": 2,
+    "empty": 0
+  },
+  "error": null,
+  "timestamp": "2026-03-15T10:35:00+00:00",
+  "duration_ms": 5
+}
