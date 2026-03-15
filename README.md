@@ -175,6 +175,16 @@ cli-anything-bambustudio
 
 All commands work interactively. Type `help` for the list, `exit` to quit.
 
+## Updating
+
+```bash
+cd bambustudio-agent-harness
+git pull
+bash install.sh
+```
+
+Restart Claude Desktop after updating.
+
 ## Troubleshooting
 
 **"BambuStudio binary not found"**

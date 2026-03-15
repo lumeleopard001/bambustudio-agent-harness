@@ -155,6 +155,20 @@ Küsi igal ajal: **"Kui palju filamenti alles on?"**
 
 ---
 
+## Uuendamine
+
+Kui tööriist on juba paigaldatud ja tahad uusima versiooni saada:
+
+```
+cd bambustudio-agent-harness
+git pull
+bash install.sh
+```
+
+Taaskäivita Claude Desktop pärast uuendamist.
+
+---
+
 ## Tõrkeotsing
 
 **"BambuStudio not found"**
