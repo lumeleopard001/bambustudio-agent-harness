@@ -7,7 +7,6 @@ Includes an interactive REPL mode with prompt_toolkit integration.
 
 from __future__ import annotations
 
-import os
 import shlex
 import sys
 from typing import Optional
@@ -19,6 +18,7 @@ from cli_anything.bambustudio.utils.bambustudio_backend import (
     BambuStudioBackend,
     BinaryNotFoundError,
     find_bambustudio,
+    open_in_bambustudio,
 )
 from cli_anything.bambustudio.core.project import (
     create_project,
@@ -923,12 +923,16 @@ def workflow(ctx: click.Context) -> None:
 @click.option("--quality", default="standard", help="Quality: draft, standard, fine, extra-fine")
 @click.option("-o", "--output", type=click.Path(), default=None, help="Output 3MF path")
 @click.option("--track-usage", is_flag=True, help="Deduct filament from spool inventory after slicing")
+@click.option("--open", "auto_open", is_flag=True, help="Open result in BambuStudio after slicing")
 @click.pass_context
 def workflow_auto_cmd(
     ctx: click.Context, stl: str, printer: str, material: str, quality: str,
-    output: Optional[str], track_usage: bool,
+    output: Optional[str], track_usage: bool, auto_open: bool,
 ) -> None:
     """Full auto workflow: STL → sliced project with estimates."""
+    import os
+    import shutil
+
     fmt: OutputFormatter = ctx.obj["formatter"]
     fmt.start_timer()
     try:
@@ -951,6 +955,24 @@ def workflow_auto_cmd(
                 result.setdefault("warnings", []).append(
                     f"Usage tracking failed: {track_err}"
                 )
+
+        # Open in BambuStudio GUI if requested
+        if auto_open and result.get("ok") and result.get("output_3mf"):
+            # When --open and no explicit output, copy to ~/Documents/ for persistence
+            if output is None:
+                docs_dir = os.path.expanduser("~/Documents/BambuStudio Projects")
+                try:
+                    os.makedirs(docs_dir, exist_ok=True)
+                    final_path = os.path.join(docs_dir, os.path.basename(result["output_3mf"]))
+                    shutil.copy2(result["output_3mf"], final_path)
+                    result["output_3mf"] = final_path
+                except OSError as exc:
+                    result.setdefault("warnings", []).append(
+                        f"Could not copy to Documents, opening from temp: {exc}"
+                    )
+
+            open_result = open_in_bambustudio(result["output_3mf"])
+            result["studio_opened"] = open_result
 
         click.echo(fmt.success(result, command="workflow.auto"))
     except Exception as e:
@@ -1020,6 +1042,22 @@ def workflow_review_cmd(ctx: click.Context, project_path: str) -> None:
     except Exception as e:
         click.echo(fmt.error(str(e), command="workflow.review"))
         raise SystemExit(1)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# open-in-studio (standalone command)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@cli.command("open-in-studio")
+@click.argument("path", type=click.Path(exists=True))
+@click.pass_context
+def open_in_studio_cmd(ctx: click.Context, path: str) -> None:
+    """Open a .3mf or .stl file in BambuStudio GUI."""
+    fmt: OutputFormatter = ctx.obj["formatter"]
+    fmt.start_timer()
+    result = open_in_bambustudio(path)
+    click.echo(fmt.success(result, command="open-in-studio"))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1180,6 +1218,8 @@ def repl(ctx: click.Context) -> None:
 
     project_name = ""
     if ctx.obj.get("project"):
+        import os
+
         project_name = os.path.basename(ctx.obj["project"])
 
     while True:

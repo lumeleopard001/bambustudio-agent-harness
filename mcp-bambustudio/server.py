@@ -29,6 +29,7 @@ except ImportError:
     sys.exit(1)
 
 from cli_anything.bambustudio.core.workflow import workflow_auto, workflow_review
+from cli_anything.bambustudio.utils.bambustudio_backend import open_in_bambustudio
 from cli_anything.bambustudio.core.config import (
     list_printers,
     list_filaments,
@@ -156,6 +157,18 @@ def available_materials(printer: str = "Bambu Lab A1") -> list[dict[str, Any]]:
         printer: Printer name (default: Bambu Lab A1).
     """
     return list_filaments(printer=printer)
+
+
+@mcp.tool()
+def open_in_studio(project_path: str) -> dict[str, Any]:
+    """Open a sliced project in BambuStudio for visual preview and printing.
+
+    After opening, click 'Send to Printer' in BambuStudio to start printing.
+
+    Args:
+        project_path: Absolute path to the .3mf or .stl file.
+    """
+    return open_in_bambustudio(project_path)
 
 
 @mcp.tool()

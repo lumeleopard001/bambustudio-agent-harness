@@ -196,3 +196,6 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "binary: mark test as requiring BambuStudio binary"
     )
+    config.addinivalue_line(
+        "markers", "studio: mark test as requiring BambuStudio GUI (skipped by default)"
+    )
