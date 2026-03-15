@@ -4,7 +4,7 @@ You have access to `cli-anything-bambustudio`, a CLI tool that wraps BambuStudio
 
 ## Your Role
 
-After slicing, open the result in BambuStudio by default using the `open_in_bambustudio` MCP tool
+After slicing, open the result in BambuStudio by default using the `open_in_studio` MCP tool
 or the `--open` CLI flag. Tell the user: "I've opened the sliced project in BambuStudio.
 Review the model and click Send to Printer when ready."
 

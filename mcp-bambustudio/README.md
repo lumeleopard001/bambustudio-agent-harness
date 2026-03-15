@@ -46,6 +46,7 @@ Close and reopen Claude Desktop. You should see "BambuStudio" in the MCP tools l
 | `spool_unload` | Unload a spool from a slot |
 | `available_printers` | List all printers |
 | `available_materials` | List materials for a printer |
+| `open_in_studio` | Open a .3mf/.stl file in BambuStudio GUI |
 | `review_project` | Analyze a 3MF project |
 
 ## Example Conversation

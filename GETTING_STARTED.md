@@ -71,8 +71,8 @@ Ava Claude Desktop ja kirjuta loomulikus keeles. Näiteks:
 > - Filament: 12.3g PLA
 > - Projekt salvestatud: /tmp/bambustudio_auto_.../phone_stand_project.3mf
 >
-> Ava see fail BambuStudios, et näha slicitud mudelit visuaalselt:
-> File → Open Project → navigeeri ülaltoodud asukohta.
+> Avan slicitud projekti BambuStudios...
+> BambuStudio avaneb automaatselt. Vaata mudel üle ja vajuta "Send to Printer".
 
 ### Veel näiteid, mida Claude'ilt küsida
 
@@ -119,21 +119,23 @@ Claude analüüsib projekti ja annab soovitusi: "Layer height on 0.28mm (draft) 
 
 ## Kuidas tulemust BambuStudios avada
 
-Kui Claude on mudeli sliceinud, annab ta sulle failitee (nt `/tmp/bambustudio_auto_.../model_project.3mf`).
+Kui Claude on mudeli sliceinud, avab ta tulemuse **automaatselt BambuStudios**. Sa näed kohe slicitud mudelit — kihid, tugimaterjalid, prindiaeg. Vajuta "Send to Printer" kui kõik sobib.
 
-### Variant A: Küsi Claude'ilt
+### Variant A: Automaatne (vaikimisi)
+
+Claude avab BambuStudio ise pärast slicimist. Sind ei pea midagi tegema.
+
+Kui see mingil põhjusel ei käivitu, ütle lihtsalt:
 > "Ava see fail BambuStudios"
 
-Claude juhendab sind samm-sammult.
+### Variant B: Käsitsi avamine
 
-### Variant B: Tee ise
+Kui eelistad ise avada:
 1. Ava **BambuStudio**
 2. Mine **File → Open Project**
 3. Vajuta **Cmd + Shift + G** (Go to Folder)
 4. Kleebi failitee, mille Claude andis
 5. Vali `.3mf` fail ja vajuta Open
-
-Nüüd näed slicitud mudelit visuaalselt — kihid, tugimaterjalid, prindiaeg.
 
 ---
 
@@ -175,9 +177,9 @@ Küsi igal ajal: **"Kui palju filamenti alles on?"**
 
 | Claude teeb | Claude ei tee |
 |------------|---------------|
-| Slicib STL faile sinu printeri jaoks | Ei saada printi otse printerisse |
+| Slicib STL faile ja avab tulemuse BambuStudios | Ei saada printi otse printerisse |
 | Soovitab materjali, kvaliteeti, täidist | Ei tee mudelite disaini (kasutad selleks Tinkercad vms) |
-| Jälgib filamendi kasutust | Ei loe AMS-ist automaatselt andmeid |
+| Jälgib filamendi kasutust | Ei loe AMS-ist otse (slotid tuleb käsitsi registreerida) |
 | Analüüsib olemasolevaid projekte | Ei muuda projekte visuaalselt (selleks kasuta BambuStudio GUI-d) |
 | Selgitab miks üht või teist seadet kasutada | Ei otsusta sinu eest — sina valid, Claude soovitab |
 

@@ -121,7 +121,8 @@ Add to Claude Desktop config (`~/Library/Application Support/Claude/claude_deskt
 }
 ```
 
-Then you can ask Claude: "Slice this STL for my A1 with PLA" or "How much white PLA do I have left?"
+After slicing, Claude automatically opens the result in BambuStudio. You can also ask:
+"Slice this STL for my A1 with PLA", "How much white PLA do I have left?", or "Open this file in BambuStudio".
 
 See [`mcp-bambustudio/README.md`](mcp-bambustudio/README.md) for detailed setup.
 
