@@ -196,22 +196,31 @@ def discover_projects(query: str = "", limit: int = 10) -> dict[str, Any]:
 @mcp.tool()
 def slice_project(
     project_path: str,
+    printer: str = "Bambu Lab A1",
+    material: str = "PLA",
+    quality: str = "standard",
     plate: int = 0,
     track_usage: bool = False,
 ) -> dict[str, Any]:
-    """Slice an existing 3MF project using its embedded presets.
+    """Slice a 3MF project for 3D printing.
 
-    Use this for 3MF files from Makerworld or BambuStudio that already
-    contain printer, material, and quality settings. For raw STL files
-    without presets, use slice_stl instead.
+    Handles both BambuStudio-native and third-party 3MF files.
+    For third-party files that crash the slicer, automatically extracts
+    geometry and applies the specified printer/material/quality settings.
 
     Args:
         project_path: Absolute path to the .3mf file.
+        printer: Printer name (default: Bambu Lab A1). Used if embedded presets fail.
+        material: Material type: PLA, PETG, ABS, TPU (default: PLA). Used if embedded presets fail.
+        quality: Print quality: draft, standard, fine (default: standard). Used if embedded presets fail.
         plate: Plate to slice (0 = all plates).
         track_usage: If True, deduct filament from loaded spools.
     """
     result = workflow_slice_project(
         project_path=project_path,
+        printer=printer,
+        material=material,
+        quality=quality,
         plate=plate,
     )
 

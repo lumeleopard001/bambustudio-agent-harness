@@ -1,4 +1,4 @@
-"""Parser and writer for BambuStudio BBS-variant 3MF files.
+"""Parser, writer, and geometry extractor for BambuStudio BBS-variant 3MF files.
 
 A 3MF file is a ZIP archive containing:
 - 3D/3dmodel.model  — XML model with objects, vertices, triangles, build items
@@ -13,6 +13,7 @@ external dependencies beyond the standard library.
 from __future__ import annotations
 
 import io
+import struct
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -507,3 +508,88 @@ def create_minimal_3mf(
 
     obj.save(output_path)
     return obj
+
+
+# ── Geometry extraction ───────────────────────────────────────────────
+
+def extract_stl_from_3mf(threemf_path: str, output_stl: str) -> dict:
+    """Extract geometry from a 3MF file and write as binary STL.
+
+    Parses the 3D/3dmodel.model XML directly (no BambuStudio CLI needed),
+    reads vertex and triangle data, and writes a standard binary STL file.
+    This works even when BambuStudio CLI crashes on third-party 3MF files.
+
+    Args:
+        threemf_path: Path to the source .3mf file.
+        output_stl: Path for the output .stl file.
+
+    Returns:
+        Dict with extraction result: vertices, triangles, objects, size_bytes.
+
+    Raises:
+        FileNotFoundError: If the 3MF file does not exist.
+        ValueError: If no geometry is found in the 3MF.
+    """
+    with zipfile.ZipFile(threemf_path, "r") as zf:
+        if MODEL_FILE not in zf.namelist():
+            raise ValueError(f"No {MODEL_FILE} found in {threemf_path}")
+        model_data = zf.read(MODEL_FILE)
+
+    root = ET.fromstring(model_data)
+
+    # Collect all vertices and triangles across all objects
+    all_vertices: list[tuple[float, float, float]] = []
+    all_triangles: list[tuple[int, int, int]] = []
+    object_count = 0
+
+    for obj_elem in root.findall(f".//{{{NS_3MF}}}object"):
+        mesh = obj_elem.find(f"{{{NS_3MF}}}mesh")
+        if mesh is None:
+            continue
+        verts_elem = mesh.find(f"{{{NS_3MF}}}vertices")
+        tris_elem = mesh.find(f"{{{NS_3MF}}}triangles")
+        if verts_elem is None or tris_elem is None:
+            continue
+
+        # Offset for merging multiple objects into one STL
+        v_offset = len(all_vertices)
+
+        for v in verts_elem.findall(f"{{{NS_3MF}}}vertex"):
+            all_vertices.append((
+                float(v.get("x", "0")),
+                float(v.get("y", "0")),
+                float(v.get("z", "0")),
+            ))
+
+        for t in tris_elem.findall(f"{{{NS_3MF}}}triangle"):
+            all_triangles.append((
+                int(t.get("v1", "0")) + v_offset,
+                int(t.get("v2", "0")) + v_offset,
+                int(t.get("v3", "0")) + v_offset,
+            ))
+
+        object_count += 1
+
+    if not all_triangles:
+        raise ValueError(f"No geometry found in {threemf_path}")
+
+    # Write binary STL
+    Path(output_stl).parent.mkdir(parents=True, exist_ok=True)
+    with open(output_stl, "wb") as f:
+        f.write(b"\0" * 80)  # header
+        f.write(struct.pack("<I", len(all_triangles)))
+        for v1i, v2i, v3i in all_triangles:
+            # Normal vector (0,0,0) — slicer recalculates
+            f.write(struct.pack("<fff", 0.0, 0.0, 0.0))
+            f.write(struct.pack("<fff", *all_vertices[v1i]))
+            f.write(struct.pack("<fff", *all_vertices[v2i]))
+            f.write(struct.pack("<fff", *all_vertices[v3i]))
+            f.write(struct.pack("<H", 0))  # attribute byte count
+
+    size = Path(output_stl).stat().st_size
+    return {
+        "vertices": len(all_vertices),
+        "triangles": len(all_triangles),
+        "objects": object_count,
+        "size_bytes": size,
+    }

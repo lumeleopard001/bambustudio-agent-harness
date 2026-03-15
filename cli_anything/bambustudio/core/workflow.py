@@ -260,18 +260,23 @@ def workflow_auto(
 
 def workflow_slice_project(
     project_path: str,
+    printer: str = "Bambu Lab A1",
+    material: str = "PLA",
+    quality: str = "standard",
     plate: int = 0,
     backend: BambuStudioBackend | None = None,
 ) -> dict[str, Any]:
-    """Slice an existing 3MF project using its embedded presets.
+    """Slice a 3MF project for 3D printing.
 
-    Unlike workflow_auto (which imports an STL and creates a project),
-    this slices a 3MF that already contains printer, material, quality
-    settings, and plate layout — typical for Makerworld downloads and
-    BambuStudio-saved projects.
+    Tries to slice the 3MF directly using its embedded presets. If the
+    BambuStudio CLI crashes (common with third-party 3MF files), falls
+    back to extracting geometry as STL and slicing via workflow_auto.
 
     Args:
         project_path: Path to the .3mf file.
+        printer: Printer name (used in fallback). Default: Bambu Lab A1.
+        material: Material type (used in fallback). Default: PLA.
+        quality: Quality tier (used in fallback). Default: standard.
         plate: Plate index to slice (0 = all plates).
         backend: BambuStudioBackend instance.
 
@@ -288,60 +293,126 @@ def workflow_slice_project(
         from cli_anything.bambustudio.utils.bambustudio_backend import find_bambustudio
         backend = BambuStudioBackend(find_bambustudio())
 
-    # Preflight: geometry and settings check
-    preflight = _preflight_check(str(proj), backend)
-    step_warnings: list[str] = preflight.get("warnings", [])
-
-    # Slice directly — project has its own presets
+    # Try direct slice first
     slice_dir = tempfile.mkdtemp(prefix="bambustudio_project_slice_")
     slice_result = backend.run(
         ["--slice", str(plate), "--outputdir", slice_dir],
         input_files=[str(proj)],
     )
 
-    # Build response
+    # If CLI crashed (negative return code = signal), fall back to STL extraction
+    if slice_result.returncode < 0:
+        return _slice_project_fallback(
+            project_path=str(proj),
+            printer=printer,
+            material=material,
+            quality=quality,
+            backend=backend,
+        )
+
+    # Direct slice path — build response
+    step_warnings: list[str] = []
+
+    # Get object info via Python parser (preflight may crash too)
+    try:
+        tmf = ThreeMF.load(str(proj))
+        objects = tmf.get_objects()
+        object_count = len(objects)
+        total_triangles = sum(o.triangle_count for o in objects)
+    except Exception:
+        object_count = None
+        total_triangles = None
+
     result: dict[str, Any] = {
         "ok": True,
         "project": str(proj.resolve()),
         "warnings": step_warnings,
     }
-
-    # Add preflight info
-    if "object_count" in preflight:
-        result["object_count"] = preflight["object_count"]
-        result["total_triangles"] = preflight.get("total_triangles", 0)
+    if object_count is not None:
+        result["object_count"] = object_count
+        result["total_triangles"] = total_triangles
 
     if slice_result.ok:
         result["sliced"] = True
         result["slice_duration_ms"] = slice_result.duration_ms
-
-        # Parse result.json for estimates
-        result_json_path = os.path.join(slice_dir, "result.json")
-        if os.path.isfile(result_json_path):
-            try:
-                with open(result_json_path, "r", encoding="utf-8") as fh:
-                    slice_data = json.load(fh)
-                result["result"] = slice_data
-
-                plates = slice_data.get("sliced_plates", [])
-                if plates:
-                    p = plates[0]
-                    total_time = p.get("total_predication", 0)
-                    result["print_time_seconds"] = total_time
-                    result["print_time_human"] = _format_time(total_time)
-
-                    filaments = p.get("filaments", [])
-                    if filaments:
-                        total_g = sum(f.get("total_used_g", 0) for f in filaments)
-                        result["filament_used_g"] = round(total_g, 1)
-            except (json.JSONDecodeError, OSError):
-                step_warnings.append("Could not parse result.json")
+        _parse_slice_results(slice_dir, result, step_warnings)
     else:
         result["sliced"] = False
         result["slice_error"] = slice_result.error_message
         step_warnings.append(f"Slicing failed: {slice_result.error_message}")
 
     return result
+
+
+def _slice_project_fallback(
+    project_path: str,
+    printer: str,
+    material: str,
+    quality: str,
+    backend: BambuStudioBackend,
+) -> dict[str, Any]:
+    """Fallback: extract STL from 3MF and slice via workflow_auto.
+
+    Used when BambuStudio CLI crashes on third-party 3MF files.
+    """
+    from cli_anything.bambustudio.utils.threemf import extract_stl_from_3mf
+
+    try:
+        stl_dir = tempfile.mkdtemp(prefix="bambustudio_3mf_extract_")
+        stl_path = os.path.join(stl_dir, Path(project_path).stem + ".stl")
+        extraction = extract_stl_from_3mf(project_path, stl_path)
+    except (ValueError, FileNotFoundError, Exception) as exc:
+        return {
+            "error": f"Could not extract geometry from 3MF: {exc}",
+            "ok": False,
+        }
+
+    # Slice the extracted STL
+    result = workflow_auto(
+        stl_path=stl_path,
+        printer=printer,
+        material=material,
+        quality=quality,
+        backend=backend,
+    )
+
+    # Tag the result so caller knows fallback was used
+    result["fallback"] = True
+    result["fallback_reason"] = "BambuStudio CLI crashed on this 3MF — extracted geometry as STL"
+    result["extraction"] = extraction
+    result.setdefault("warnings", []).append(
+        "Third-party 3MF: embedded presets were ignored, used specified printer/material/quality instead"
+    )
+    return result
+
+
+def _parse_slice_results(
+    slice_dir: str,
+    result: dict[str, Any],
+    warnings: list[str],
+) -> None:
+    """Parse result.json from a slice output directory into the result dict."""
+    result_json_path = os.path.join(slice_dir, "result.json")
+    if not os.path.isfile(result_json_path):
+        return
+    try:
+        with open(result_json_path, "r", encoding="utf-8") as fh:
+            slice_data = json.load(fh)
+        result["result"] = slice_data
+
+        plates = slice_data.get("sliced_plates", [])
+        if plates:
+            p = plates[0]
+            total_time = p.get("total_predication", 0)
+            result["print_time_seconds"] = total_time
+            result["print_time_human"] = _format_time(total_time)
+
+            filaments = p.get("filaments", [])
+            if filaments:
+                total_g = sum(f.get("total_used_g", 0) for f in filaments)
+                result["filament_used_g"] = round(total_g, 1)
+    except (json.JSONDecodeError, OSError):
+        warnings.append("Could not parse result.json")
 
 
 # ═══════════════════════════════════════════════════════════════════════════
