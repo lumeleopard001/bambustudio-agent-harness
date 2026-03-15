@@ -101,6 +101,20 @@ All `--json` responses follow this envelope:
 
 On error: `ok: false`, `error: "message"`, `data: null`.
 
+### spool (filament inventory)
+
+| Command | Description |
+|---------|-------------|
+| `spool add --id N --brand B --material M --color C [--variant V] [--weight G] [--slot AMS:1]` | Register a new spool |
+| `spool load --id N --slot AMS:1` | Load spool into slot (auto-unloads occupant) |
+| `spool unload --slot AMS:1` | Unload spool (remembers remaining weight) |
+| `spool status` | Show all slots and remaining weights |
+| `spool list [--state loaded\|stored\|empty]` | List spools by state |
+| `spool history [--id N]` | Usage history per print |
+| `spool remove --id N` | Remove spool from registry |
+
+Valid slots: `AMS:1`, `AMS:2`, `AMS:3`, `AMS:4`, `EXT:1`.
+
 ## Workflow Recipes
 
 ### Recipe 1: Simple Print (most common)
@@ -206,3 +220,50 @@ Key error codes from the slicer (full list: 0-49):
 Common Bambu Lab printers: A1, A1 mini, X1 Carbon, X1E, P1P, P1S, P2S, H2C, H2D, H2D Pro, H2S.
 
 Use `profiles list-printers` for the full current list with nozzle options.
+
+## Filament Inventory
+
+Track filament usage across prints. Spools persist between sessions.
+
+### Recipe 5: Set Up Inventory
+
+```bash
+# Register spools
+cli-anything-bambustudio --json spool add --id 1 --brand Bambu --material PLA --color white --slot AMS:1
+cli-anything-bambustudio --json spool add --id 2 --brand Bambu --material PLA --color black --slot AMS:2
+
+# Check status
+cli-anything-bambustudio --json spool status
+```
+
+### Recipe 6: Slice with Usage Tracking
+
+```bash
+# Slice AND deduct filament automatically
+cli-anything-bambustudio --json workflow auto \
+  --stl model.stl --printer "Bambu Lab A1" --material PLA --track-usage
+```
+
+The `--track-usage` flag reads `result.json` after slicing and deducts filament from loaded spools.
+Output includes `usage_tracking` with: previous weight, deducted amount (print + purge), new weight.
+
+### Recipe 7: Swap Spools
+
+```bash
+# Unload from slot (spool goes to "stored", remembers remaining weight)
+cli-anything-bambustudio --json spool unload --slot AMS:2
+
+# Load different spool (auto-unloads any occupant)
+cli-anything-bambustudio --json spool load --id 3 --slot AMS:2
+```
+
+### Spool State Machine
+
+```
+spool add → stored (or loaded if --slot given)
+spool load → stored → loaded
+spool unload → loaded → stored (weight preserved)
+track-usage → loaded → empty (if remain_g reaches 0)
+```
+
+A spool that reaches 0g is marked "empty" and cannot be reloaded.

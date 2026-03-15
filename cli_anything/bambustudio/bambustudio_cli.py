@@ -62,6 +62,7 @@ from cli_anything.bambustudio.core.config import (
 )
 from cli_anything.bambustudio.core.session import Session
 from cli_anything.bambustudio.core.workflow import workflow_auto, workflow_guided_start, workflow_guided_select, workflow_guided_execute, workflow_review
+from cli_anything.bambustudio.core.inventory import SpoolRegistry
 from cli_anything.bambustudio.utils.repl_skin import ReplSkin
 
 
@@ -920,9 +921,11 @@ def workflow(ctx: click.Context) -> None:
 @click.option("--material", required=True, help="Material type (PLA, ABS, PETG, ...)")
 @click.option("--quality", default="standard", help="Quality: draft, standard, fine, extra-fine")
 @click.option("-o", "--output", type=click.Path(), default=None, help="Output 3MF path")
+@click.option("--track-usage", is_flag=True, help="Deduct filament from spool inventory after slicing")
 @click.pass_context
 def workflow_auto_cmd(
-    ctx: click.Context, stl: str, printer: str, material: str, quality: str, output: Optional[str]
+    ctx: click.Context, stl: str, printer: str, material: str, quality: str,
+    output: Optional[str], track_usage: bool,
 ) -> None:
     """Full auto workflow: STL → sliced project with estimates."""
     fmt: OutputFormatter = ctx.obj["formatter"]
@@ -933,6 +936,22 @@ def workflow_auto_cmd(
             stl_path=stl, printer=printer, material=material,
             quality=quality, output_path=output, backend=backend,
         )
+
+        # Track filament usage if requested
+        if track_usage and result.get("ok") and result.get("result"):
+            import os
+            try:
+                registry = SpoolRegistry()
+                deductions = registry.track_workflow_usage(
+                    result["result"],
+                    project_name=os.path.basename(stl),
+                )
+                result["usage_tracking"] = deductions
+            except Exception as track_err:
+                result.setdefault("warnings", []).append(
+                    f"Usage tracking failed: {track_err}"
+                )
+
         click.echo(fmt.success(result, command="workflow.auto"))
     except Exception as e:
         click.echo(fmt.error(str(e), command="workflow.auto"))
@@ -1000,6 +1019,142 @@ def workflow_review_cmd(ctx: click.Context, project_path: str) -> None:
         click.echo(fmt.success(result, command="workflow.review"))
     except Exception as e:
         click.echo(fmt.error(str(e), command="workflow.review"))
+        raise SystemExit(1)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# spool group (filament inventory)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@cli.group()
+@click.pass_context
+def spool(ctx: click.Context) -> None:
+    """Filament spool inventory and usage tracking."""
+    pass
+
+
+@spool.command("add")
+@click.option("--id", "spool_id", required=True, type=int, help="Spool ID number")
+@click.option("--brand", required=True, help="Brand (Bambu, Sunlu, eSun, ...)")
+@click.option("--material", required=True, help="Material type (PLA, PETG, ABS, TPU, ...)")
+@click.option("--variant", default="", help="Variant (Basic, Silk, Matte, ...)")
+@click.option("--color", required=True, help="Color name (white, black, red, ...)")
+@click.option("--weight", type=float, default=None, help="Spool weight in grams (default: auto by material)")
+@click.option("--slot", default=None, help="Load into slot (AMS:1-4 or EXT:1)")
+@click.pass_context
+def spool_add(
+    ctx: click.Context, spool_id: int, brand: str, material: str,
+    variant: str, color: str, weight: Optional[float], slot: Optional[str],
+) -> None:
+    """Register a new filament spool."""
+    fmt: OutputFormatter = ctx.obj["formatter"]
+    fmt.start_timer()
+    try:
+        registry = SpoolRegistry()
+        result = registry.add(
+            spool_id=spool_id, brand=brand, material=material,
+            variant=variant, color=color, weight=weight, slot=slot,
+        )
+        click.echo(fmt.success(result, command="spool.add"))
+    except Exception as e:
+        click.echo(fmt.error(str(e), command="spool.add"))
+        raise SystemExit(1)
+
+
+@spool.command("load")
+@click.option("--id", "spool_id", required=True, type=int, help="Spool ID to load")
+@click.option("--slot", required=True, help="Target slot (AMS:1-4 or EXT:1)")
+@click.pass_context
+def spool_load(ctx: click.Context, spool_id: int, slot: str) -> None:
+    """Load a spool into a printer slot."""
+    fmt: OutputFormatter = ctx.obj["formatter"]
+    fmt.start_timer()
+    try:
+        registry = SpoolRegistry()
+        result = registry.load_spool(spool_id, slot)
+        click.echo(fmt.success(result, command="spool.load"))
+    except Exception as e:
+        click.echo(fmt.error(str(e), command="spool.load"))
+        raise SystemExit(1)
+
+
+@spool.command("unload")
+@click.option("--slot", required=True, help="Slot to unload (AMS:1-4 or EXT:1)")
+@click.pass_context
+def spool_unload(ctx: click.Context, slot: str) -> None:
+    """Unload a spool from a slot (moves to storage)."""
+    fmt: OutputFormatter = ctx.obj["formatter"]
+    fmt.start_timer()
+    try:
+        registry = SpoolRegistry()
+        result = registry.unload(slot)
+        click.echo(fmt.success(result, command="spool.unload"))
+    except Exception as e:
+        click.echo(fmt.error(str(e), command="spool.unload"))
+        raise SystemExit(1)
+
+
+@spool.command("status")
+@click.pass_context
+def spool_status(ctx: click.Context) -> None:
+    """Show all spools and loaded slots."""
+    fmt: OutputFormatter = ctx.obj["formatter"]
+    fmt.start_timer()
+    try:
+        registry = SpoolRegistry()
+        result = registry.status()
+        click.echo(fmt.success(result, command="spool.status"))
+    except Exception as e:
+        click.echo(fmt.error(str(e), command="spool.status"))
+        raise SystemExit(1)
+
+
+@spool.command("list")
+@click.option("--state", type=click.Choice(["loaded", "stored", "empty"]), default=None, help="Filter by state")
+@click.pass_context
+def spool_list(ctx: click.Context, state: Optional[str]) -> None:
+    """List spools, optionally filtered by state."""
+    fmt: OutputFormatter = ctx.obj["formatter"]
+    fmt.start_timer()
+    try:
+        registry = SpoolRegistry()
+        result = registry.list_spools(state=state)
+        click.echo(fmt.success(result, command="spool.list"))
+    except Exception as e:
+        click.echo(fmt.error(str(e), command="spool.list"))
+        raise SystemExit(1)
+
+
+@spool.command("history")
+@click.option("--id", "spool_id", type=int, default=None, help="Filter by spool ID")
+@click.pass_context
+def spool_history(ctx: click.Context, spool_id: Optional[int]) -> None:
+    """Show usage history for spools."""
+    fmt: OutputFormatter = ctx.obj["formatter"]
+    fmt.start_timer()
+    try:
+        registry = SpoolRegistry()
+        result = registry.history(spool_id=spool_id)
+        click.echo(fmt.success(result, command="spool.history"))
+    except Exception as e:
+        click.echo(fmt.error(str(e), command="spool.history"))
+        raise SystemExit(1)
+
+
+@spool.command("remove")
+@click.option("--id", "spool_id", required=True, type=int, help="Spool ID to remove")
+@click.pass_context
+def spool_remove(ctx: click.Context, spool_id: int) -> None:
+    """Remove a spool from the registry."""
+    fmt: OutputFormatter = ctx.obj["formatter"]
+    fmt.start_timer()
+    try:
+        registry = SpoolRegistry()
+        result = registry.remove(spool_id)
+        click.echo(fmt.success(result, command="spool.remove"))
+    except Exception as e:
+        click.echo(fmt.error(str(e), command="spool.remove"))
         raise SystemExit(1)
 
 
