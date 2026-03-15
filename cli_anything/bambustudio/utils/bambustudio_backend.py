@@ -71,6 +71,9 @@ CLI_ERRORS: dict[int, str] = {
     47: "Filament unprintable at first layer",
     48: "G-code outside printable area",
     49: "G-code in wrapping detect area",
+    # High exit codes from BambuStudio binary (not in official docs)
+    250: "Loading of a model file failed",
+    253: "File path not found on disk",
 }
 
 

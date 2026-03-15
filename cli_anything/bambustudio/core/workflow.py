@@ -160,10 +160,10 @@ def workflow_auto(
         backend = BambuStudioBackend(find_bambustudio())
 
     # Step 3: Import STL into the project
-    # BambuStudio CLI: binary input.stl input.3mf --export-3mf output.3mf
+    # BambuStudio CLI: binary input.stl --export-3mf output.3mf
     import_result = backend.run(
         ["--export-3mf", output_path],
-        input_files=[str(stl), output_path],
+        input_files=[str(stl)],
     )
     if not import_result.ok:
         return {
