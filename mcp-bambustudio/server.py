@@ -40,7 +40,7 @@ from cli_anything.bambustudio.core.inventory import SpoolRegistry
 
 mcp = FastMCP(
     "BambuStudio",
-    description="3D printing slicer tools: slice STL files, manage filament spools, discover printer profiles",
+    instructions="3D printing slicer tools: slice STL files, manage filament spools, discover printer profiles",
 )
 
 
