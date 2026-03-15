@@ -17,6 +17,16 @@ Claude do it for you. It also tracks how much filament is left on each spool.
 3. **Batch processing.** Slice 20 STL files with one script instead of clicking through the GUI 20 times.
 4. **Compare settings.** Quickly see how print time changes between draft and fine quality.
 
+## Supported platforms
+
+| Platform | Supported | Notes |
+|----------|-----------|-------|
+| Claude Desktop (macOS) | Yes | Auto-configured by installer |
+| Claude Code (terminal) | Yes | Auto-configured by installer |
+| claude.ai (web) | No | Web does not support local MCP servers |
+
+The installer detects which platforms are installed and configures both automatically.
+
 ## Installation
 
 ### Quick install (recommended)

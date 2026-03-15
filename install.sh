@@ -241,6 +241,53 @@ else
 fi
 
 # ---------------------------------------------------------------
+# Step 10: Configure Claude Code MCP (if installed)
+# ---------------------------------------------------------------
+CLAUDE_CODE_DIR="$HOME/.claude"
+CLAUDE_CODE_MCP="$CLAUDE_CODE_DIR/.mcp.json"
+
+if [ -d "$CLAUDE_CODE_DIR" ]; then
+    echo ""
+    echo "Setting up Claude Code integration..."
+
+    if [ -f "$CLAUDE_CODE_MCP" ]; then
+        if grep -q "bambustudio" "$CLAUDE_CODE_MCP" 2>/dev/null; then
+            info "Claude Code MCP already configured"
+        else
+            "$VENV_DIR/bin/python" -c "
+import json, sys
+try:
+    with open('$CLAUDE_CODE_MCP', 'r') as f:
+        config = json.load(f)
+except (json.JSONDecodeError, FileNotFoundError):
+    config = {}
+if 'mcpServers' not in config:
+    config['mcpServers'] = {}
+config['mcpServers']['bambustudio'] = {
+    'command': '$MCP_PYTHON',
+    'args': ['$MCP_SERVER_PATH']
+}
+with open('$CLAUDE_CODE_MCP', 'w') as f:
+    json.dump(config, f, indent=2)
+print('OK')
+" 2>/dev/null && info "Claude Code MCP configured" || warn "Could not update Claude Code config"
+        fi
+    else
+        cat > "$CLAUDE_CODE_MCP" << MCPEOF
+{
+  "mcpServers": {
+    "bambustudio": {
+      "command": "$MCP_PYTHON",
+      "args": ["$MCP_SERVER_PATH"]
+    }
+  }
+}
+MCPEOF
+        info "Claude Code MCP config created"
+    fi
+fi
+
+# ---------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------
 echo ""

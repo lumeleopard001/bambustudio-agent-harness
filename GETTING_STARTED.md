@@ -10,6 +10,18 @@ Lõpptulemus: sa saad Claude'ile öelda "Slici see fail minu A1 printerile" ja C
 
 ---
 
+## Kus see töötab?
+
+| Platvorm | Töötab? | Märkused |
+|----------|---------|----------|
+| Claude Desktop (macOS) | Jah | Automaatne seadistus installeriga |
+| Claude Code (terminal) | Jah | Automaatne seadistus installeriga |
+| claude.ai (veebis) | Ei | Veeb ei toeta lokaalseid MCP servereid |
+
+Installer tuvastab automaatselt, millised platvormid on installeeritud, ja seadistab mõlemad.
+
+---
+
 ## Mida sa vajad
 
 Enne alustamist kontrolli, et sul on:
