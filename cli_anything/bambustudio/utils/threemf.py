@@ -13,6 +13,7 @@ external dependencies beyond the standard library.
 from __future__ import annotations
 
 import io
+import json
 import struct
 import zipfile
 from dataclasses import dataclass, field
@@ -232,6 +233,53 @@ class ThreeMF:
         if data is None:
             return {}
         return parse_config(data.decode("utf-8", errors="replace"))
+
+    def get_config_smart(self, config_name: str) -> dict[str, str]:
+        """Read a config file, auto-detecting JSON or INI format.
+
+        BambuStudio v01.10+ writes project_settings.config as JSON,
+        while older versions use INI (key = value) format.  This method
+        tries JSON first and falls back to INI parsing.
+
+        Args:
+            config_name: Internal path, e.g. "Metadata/project_settings.config".
+
+        Returns:
+            Parsed key-value dictionary. Empty dict if file not found.
+        """
+        data = self._files.get(config_name)
+        if data is None:
+            return {}
+        text = data.decode("utf-8", errors="replace")
+        # Try JSON first (BambuStudio v01.10+)
+        stripped = text.strip()
+        if stripped.startswith("{"):
+            try:
+                parsed = json.loads(stripped)
+                # Flatten to str values for consistency with INI parser
+                return {k: str(v) for k, v in parsed.items()}
+            except json.JSONDecodeError:
+                pass
+        # Fallback to INI
+        return parse_config(text)
+
+    def get_config_format(self, config_name: str) -> str | None:
+        """Detect the format of a config file in the archive.
+
+        Returns:
+            "json", "ini", or None if file not found.
+        """
+        data = self._files.get(config_name)
+        if data is None:
+            return None
+        text = data.decode("utf-8", errors="replace").strip()
+        if text.startswith("{"):
+            try:
+                json.loads(text)
+                return "json"
+            except json.JSONDecodeError:
+                pass
+        return "ini"
 
     def set_config(self, config_name: str, key: str, value: str) -> None:
         """Update a single key in a BBS config file.
