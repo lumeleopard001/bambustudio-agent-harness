@@ -30,7 +30,12 @@ except ImportError:
 
 from cli_anything.bambustudio.core.workflow import workflow_auto, workflow_review, workflow_slice_project
 from cli_anything.bambustudio.core.discovery import discover_projects as _discover_projects
-from cli_anything.bambustudio.utils.bambustudio_backend import open_in_bambustudio
+from cli_anything.bambustudio.utils.bambustudio_backend import (
+    open_in_bambustudio,
+    find_bambustudio,
+    check_binary_version,
+    BinaryNotFoundError,
+)
 from cli_anything.bambustudio.core.config import (
     list_printers,
     list_filaments,
@@ -246,6 +251,47 @@ def review_project(project_path: str) -> dict[str, Any]:
         project_path: Absolute path to the .3mf file.
     """
     return workflow_review(project_path=project_path)
+
+
+@mcp.tool()
+def check_setup() -> dict[str, Any]:
+    """Check if BambuStudio binary and profiles are working correctly.
+
+    Returns binary path, version, known issues, and profile directory status.
+    """
+    result: dict[str, Any] = {}
+
+    # Binary
+    try:
+        binary_path = find_bambustudio()
+        result["binary"] = {"found": True, "path": binary_path}
+        result["binary"].update(check_binary_version(binary_path))
+    except BinaryNotFoundError as e:
+        result["binary"] = {"found": False, "error": str(e)}
+
+    # Profiles
+    profiles_dir = os.environ.get("BAMBUSTUDIO_PROFILES")
+    if profiles_dir and os.path.isdir(profiles_dir):
+        result["profiles"] = {"found": True, "path": profiles_dir}
+    elif profiles_dir:
+        result["profiles"] = {"found": False, "error": f"BAMBUSTUDIO_PROFILES={profiles_dir} does not exist"}
+    else:
+        result["profiles"] = {"found": False, "error": "BAMBUSTUDIO_PROFILES not set"}
+
+    # Spool registry
+    try:
+        registry = SpoolRegistry()
+        status = registry.status()
+        result["spools"] = {"loaded": len(status.get("loaded", [])), "total": len(status.get("all_spools", []))}
+    except Exception as e:
+        result["spools"] = {"error": str(e)}
+
+    # Overall status
+    has_warning = result.get("binary", {}).get("warning")
+    binary_ok = result.get("binary", {}).get("found", False)
+    result["ok"] = binary_ok and not has_warning
+
+    return result
 
 
 if __name__ == "__main__":

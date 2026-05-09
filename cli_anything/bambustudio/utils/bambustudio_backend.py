@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -184,6 +185,49 @@ def find_bambustudio() -> str:
         f"Unsupported platform: {system}. "
         "Set BAMBUSTUDIO_BIN=/path/to/bambustudio binary."
     )
+
+
+# ── Version check ─────────────────────────────────────────────────────
+
+# Versions with known CLI regressions
+_BROKEN_VERSIONS: dict[str, str] = {
+    "02.05": "v02.05 CLI has a known regression: loads models but creates 0 objects, causing slicing to silently fail. Downgrade to v02.03 or wait for a fix from Bambu Lab.",
+}
+
+
+def check_binary_version(binary_path: str) -> dict[str, Any]:
+    """Check BambuStudio version and known issues.
+
+    Args:
+        binary_path: Path to BambuStudio binary.
+
+    Returns:
+        Dict with 'version' and optionally 'warning' keys.
+    """
+    try:
+        result = subprocess.run(
+            [binary_path, "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        output = result.stdout + result.stderr
+    except (subprocess.TimeoutExpired, OSError):
+        return {"version": "unknown", "warning": "Could not determine version (binary did not respond)"}
+
+    version_match = re.search(r"BambuStudio[- ]?(\d+\.\d+\.\d+\.\d+)", output)
+    if not version_match:
+        return {"version": "unknown"}
+
+    version = version_match.group(1)
+    info: dict[str, Any] = {"version": version}
+
+    for prefix, warning in _BROKEN_VERSIONS.items():
+        if version.startswith(prefix):
+            info["warning"] = warning
+            break
+
+    return info
 
 
 # ── Backend class ──────────────────────────────────────────────────────

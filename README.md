@@ -206,6 +206,10 @@ Set `BAMBUSTUDIO_PROFILES=/path/to/profiles/BBL/`. On macOS this is inside the .
 **"Python 3.10+ required"**
 Install a newer Python: `brew install python@3.12` (macOS) or `sudo apt install python3.12` (Linux).
 
+## Known issues
+
+**BambuStudio v02.05 CLI regression:** The CLI in BambuStudio v02.05.00.64 loads models but does not create objects from them (`total 1 models` but `0 objects`), causing slicing to silently fail. This affects all CLI operations (slice, export-3mf, export-stl). The binary itself starts and `--help` works, but every real operation produces no output. Workaround: downgrade to v02.03 or wait for a fix from Bambu Lab. Run `check_setup` (MCP) or `cli-anything-bambustudio setup check` to verify your version.
+
 ## Running tests
 
 ```bash
